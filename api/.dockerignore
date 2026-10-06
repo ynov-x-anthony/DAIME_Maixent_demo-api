@@ -1,0 +1,25 @@
+# Dépendances (réinstallées par npm ci dans l'image)
+node_modules
+npm-debug.log*
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+
+# Secrets / environnement
+.env
+.env*
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Divers
+.vscode
+.idea
+coverage
+*.log
+.DS_Store
