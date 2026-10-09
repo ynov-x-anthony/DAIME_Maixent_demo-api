@@ -1,89 +1,104 @@
 # demo-api
 
-Le fil rouge des quêtes Docker : une mini-API "catalogue" que tu vas
-conteneuriser, faire persister, mettre en réseau, orchestrer et sécuriser,
-une quête à la fois.
+API Node.js (Express) + PostgreSQL + Adminer, lancés avec Docker Compose.
 
-Le métier est volontairement trivial (`Node` + `Express` + `PostgreSQL`,
-un catalogue de produits) : toute la difficulté est sur **Docker**, jamais
-sur le code applicatif.
+## Prérequis
 
-## Point de départ
+- Docker avec Compose v2 (`docker compose version`)
+- `git`, `curl`
+- Windows : terminal WSL ou Git Bash
 
-Ce dossier est ce que tu clones **avant ta première quête Docker**. Il n'y a
-volontairement **aucun fichier Docker** dedans, ni `Dockerfile`, ni
-`compose.yml` : ce sont précisément les fichiers que tu vas écrire, quête
-après quête, en faisant grossir ce dépôt.
+## Installation
 
-Sans conteneur, cette API ne démarre pas telle quelle : elle a besoin d'un
-PostgreSQL joignable pour répondre. C'est normal, et c'est tout le sujet de
-la première quête que de la faire tourner dans Docker.
+```bash
+git clone <url-du-repo> demo-api
+cd demo-api
 
-## Récupérer ce starter dans ton propre repo
+cp .env.example .env
 
-Ce dépôt est un **starter en lecture seule** : tu ne pousses jamais
-directement ici. Avant de démarrer la première quête :
+mkdir -p secrets
+printf 'mon-mot-de-passe' > secrets/db_password.txt
+```
 
-1. **Clone** ce repo starter :
-   ```bash
-   git clone git@github.com:ynov-x-anthony/docker-demo-api-starter.git NOM_prenom_demo-api
-   cd NOM_prenom_demo-api
-   ```
-2. **Supprime le remote `origin`** (il pointe vers le starter, pas vers toi) :
-   ```bash
-   git remote remove origin
-   ```
-3. **Crée ton propre repo** sur GitHub, dans l'organisation `ynov-x-anthony`,
-   en respectant la nomenclature **`NOM_prenom_demo-api`** (ex. :
-   `DUPONT_jean_demo-api`), puis ajoute-le comme nouveau remote et pousse :
-   ```bash
-   git remote add origin git@github.com:ynov-x-anthony/NOM_prenom_demo-api.git
-   git push -u origin main
-   ```
+`.env` et `secrets/` ne sont pas commités (voir `.gitignore`).
 
-À partir de là, c'est **ton** repo : chaque quête s'y ajoute par des commits,
-et c'est lui qui sera évalué, pas le starter.
+## Variables (`.env`)
 
-## Ce que contient le repo
-
-| Fichier | Rôle |
-|---|---|
-| `api/server.js` | l'API Express (`/`, `/version`, `/health`, `/ready`, `/products`) |
-| `api/db.js` | connexion PostgreSQL, entièrement pilotée par des variables d'environnement |
-| `api/package.json`, `api/package-lock.json` | dépendances (`express`, `pg`) |
-| `db/init.sql` | création de la table `products` + quelques données de démo |
-
-## Les routes de l'API
-
-| Méthode | Route | Effet |
+| Variable | Rôle | Défaut |
 |---|---|---|
-| `GET` | `/` | infos application + version |
-| `GET` | `/version` | numéro de version courant |
-| `GET` | `/health` | liveness, ne touche pas la base |
-| `GET` | `/ready` | readiness, teste la connexion à la base |
-| `GET` | `/products` | liste des produits |
-| `POST` | `/products` | crée un produit : `{ "name": "...", "price_cents": 1234 }` |
+| `POSTGRES_USER` | utilisateur PostgreSQL | `demo` |
+| `POSTGRES_DB` | nom de la base | `demo` |
+| `API_PORT` | port de l'API sur l'hôte | `8080` |
+| `ADMINER_PORT` | port d'Adminer sur l'hôte | `8081` |
 
-## Ta progression, quête après quête
+## Secret
 
-| Quête | Ce que tu ajoutes au repo |
+Le mot de passe de la base n'est pas dans `.env`. Il est lu depuis
+`secrets/db_password.txt`, monté par Compose dans `/run/secrets/db_password` :
+
+- `db` : `POSTGRES_PASSWORD_FILE=/run/secrets/db_password`
+- `api` : `PGPASSWORD_FILE=/run/secrets/db_password` (lu par `api/db.js`)
+
+## Lancement
+
+```bash
+docker compose up -d --build
+```
+
+## URLs
+
+| Service | URL |
 |---|---|
-| Découverte de Docker | rien ici, tu manipules des images publiques et un `psql` en conteneur |
-| Le Dockerfile | `api/Dockerfile`, `api/.dockerignore` : l'API tourne enfin dans un conteneur |
-| Les volumes | un volume nommé pour la persistance de PostgreSQL |
-| Les réseaux | des réseaux dédiés, la base jamais exposée directement |
-| Compose | `compose.yml`, `.env.example` : tous les services démarrent ensemble |
-| Dockerfile et sécurité | ton `Dockerfile` durci : utilisateur non-root, `HEALTHCHECK` |
-| Builds multi-étapes et gestion des secrets | `api/Dockerfile.multi` : image allégée, secrets hors de l'image |
-| Analyse de vulnérabilité avec Trivy | un pipeline CI qui scanne ton image et bloque sur les failles critiques |
+| API | http://localhost:8080 |
+| Produits | http://localhost:8080/products |
+| Adminer | http://localhost:8081 (serveur `db`, utilisateur `demo`, base `demo`) |
 
-## Prérequis machine (macOS / Linux / Windows)
+La base n'a pas de port publié : elle n'est joignable que depuis le réseau Compose.
 
-- **Docker Engine + Compose v2** : le plugin intégré, invoqué en deux mots
-  `docker compose` (pas l'ancien binaire autonome `docker-compose` v1).
-  `docker compose version` doit répondre `v2.x` ou une version supérieure
-  (v3, v4, v5…). Ce qui compte, c'est que ce ne soit pas du v1 legacy.
-- macOS / Windows : **Docker Desktop** (ou Colima / Rancher Desktop).
-  Sous Windows, backend **WSL 2** : travaille depuis un terminal **WSL**.
-- `git`, `curl`. Node est nécessaire **seulement** si tu régénères
-  `package-lock.json` (`cd api && npm install`, déjà commité ici).
+## Commandes
+
+```bash
+docker compose ps            # état des services
+docker compose logs -f api   # logs de l'API
+docker compose down          # arrête et supprime les conteneurs, garde les données
+docker compose down -v       # supprime aussi le volume pgdata : repart de zéro, init.sql rejoué
+```
+
+## Tests réalisés
+
+Commande testée :
+
+```bash
+docker compose up -d --build
+```
+
+`docker compose ps` :
+
+```
+NAME                               IMAGE                        SERVICE   STATUS                    PORTS
+daime_maixent_demo-api-adminer-1   adminer:4                    adminer   Up 24 seconds             0.0.0.0:8081->8080/tcp
+daime_maixent_demo-api-api-1       daime_maixent_demo-api-api   api       Up 19 seconds (healthy)   0.0.0.0:8080->3000/tcp
+daime_maixent_demo-api-db-1        postgres:16-alpine           db        Up 25 seconds (healthy)   5432/tcp
+```
+
+Produits de `init.sql` :
+
+```
+$ curl -s localhost:8080/products
+[{"id":3,"name":"T-shirt conteneur","price_cents":1990,...},{"id":2,"name":"Mug Docker","price_cents":990,...},{"id":1,"name":"Sticker Demo","price_cents":150,...}]
+```
+
+Ajout d'un produit :
+
+```
+$ curl -s -X POST -H 'content-type: application/json' \
+  -d '{"name":"Gourde","price_cents":900}' localhost:8080/products
+{"id":4,"name":"Gourde","price_cents":900,"created_at":"2026-10-09T12:18:55.844Z"}
+```
+
+Persistance après `docker compose down` puis `docker compose up -d --build` :
+
+```
+$ curl -s localhost:8080/products
+[{"id":4,"name":"Gourde","price_cents":900,...},{"id":3,"name":"T-shirt conteneur",...},{"id":2,"name":"Mug Docker",...},{"id":1,"name":"Sticker Demo",...}]
+```
