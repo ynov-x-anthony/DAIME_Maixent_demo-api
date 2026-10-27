@@ -1,6 +1,9 @@
 services:
   api:
-    build: ./api
+    image: ghcr.io/ynov-x-anthony/daime_maixent_demo-api/api:${TAG:-local}
+    build:
+      context: ./api
+      dockerfile: Dockerfile.multi
     ports:
       - "${API_PORT:-8080}:3000"
     depends_on: { db: { condition: service_healthy } }
@@ -10,7 +13,18 @@ services:
       PGUSER: ${POSTGRES_USER}
       PGPASSWORD_FILE: /run/secrets/db_password
       PGDATABASE: ${POSTGRES_DB}
+      NOTIFIER_PORT: "4000"
     secrets: [db_password]
+    networks: [front, back]
+
+  notifier:
+    image: ghcr.io/ynov-x-anthony/daime_maixent_demo-api/notifier:${TAG:-local}
+    build: ./notifier
+    environment:
+      PORT: "4000"
+    networks: [back]
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     environment:
@@ -27,14 +41,23 @@ services:
       timeout: 3s
       retries: 10
     secrets: [db_password]
+    networks: [back]
+
   adminer:
     image: adminer:4
     ports:
       - "${ADMINER_PORT:-8081}:8080"
     depends_on: [db]
     restart: unless-stopped
+    networks: [front, back]
+
+networks:
+  front:
+  back:
+
 volumes:
   pgdata:
+
 secrets:
   db_password:
     file: ./secrets/db_password.txt

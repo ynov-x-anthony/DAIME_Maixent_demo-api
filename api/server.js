@@ -63,6 +63,16 @@ app.get("/products", async (req, res) => {
 		res.status(503).json({ error: "db_unavailable", detail: err.message });
 	}
 });
+const NOTIFIER_URL = `http://notifier:${process.env.NOTIFIER_PORT || 4000}/notify`;
+
+function notify(product) {
+	fetch(NOTIFIER_URL, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ name: product.name }),
+		signal: AbortSignal.timeout(2000),
+	}).catch((err) => console.error("[api] notify failed:", err.message));
+}
 
 app.post("/products", async (req, res) => {
 	const name = ((req.body && req.body.name) || "").trim();
@@ -73,7 +83,9 @@ app.post("/products", async (req, res) => {
 			.json({ error: "name (string) et price_cents (entier >= 0) requis" });
 	}
 	try {
-		res.status(201).json(await db.addProduct(name, priceCents));
+		const product = await db.addProduct(name, priceCents);
+		res.status(201).json(product);
+		notify(product);
 	} catch (err) {
 		res.status(503).json({ error: "db_unavailable", detail: err.message });
 	}
