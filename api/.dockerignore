@@ -23,3 +23,6 @@ Dockerfile
 coverage
 *.log
 .DS_Store
+
+# Identifiants npm
+.npmrc
